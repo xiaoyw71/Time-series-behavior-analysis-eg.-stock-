@@ -9,7 +9,6 @@ import tushare as ts
 import pymongo
 import random
 import json
-import matplotlib.pyplot as plt
 import numpy as np
 import re
 
@@ -167,15 +166,15 @@ class Stock_Collection(object):
         self.index_daily = ['000001.SH', '399001.SZ']
         self.index_daily_column = ['trade_date','open','high','close','low','vol','change','pct_chg']
         
-    def setCode(self):
-        self.code = ['002230.SZ'] #, '000547.SZ', '601318.SH', '601208.SH', '600030.SH', '000938.SZ', '002108.SZ', '600967.SH']
+    def setCode(self,code):
+        self.code = code #['002230.SZ'] #, '000547.SZ', '601318.SH', '601208.SH', '600030.SH', '000938.SZ', '002108.SZ', '600967.SH']
         self.stock_column = ['trade_date','open','high','close','low','vol','change','pct_chg']
     # 构造LSTM模型训练集    
-    def generate_train_datas(self,db_name,code_name):
+    def generate_train_datas(self,db_name,code_name,filename):
         collection = self.db[db_name]
         self.out_code = code_name
         #查询条件“字典”
-        query_dict = {'ts_code':'1'}
+        query_dict = {'ts_code':'1','trade_date':{'$gt':'20171001'}}
         #col_name = {'_id':0,'trade_date':1,'ts_code':1,'open':1,'high':1,'close':1,'low':1,'vol':1,'change':1,'pct_chg':1}
         col_name = {'_id':0}
         for d in self.stock_column:
@@ -215,6 +214,7 @@ class Stock_Collection(object):
             print('code 1')
             print(df)
         #构造数据集——上证、深成指数
+        query_dict = {'ts_code':'1'}
         columns = self.index_daily_column.copy() #默认list为传址，需要赋值新list
         columns.remove('trade_date')   
         print(self.index_daily_column)      
@@ -264,32 +264,10 @@ class Stock_Collection(object):
                 k = 0              
         print(df)
         df = df.fillna(0) #数据缺失补上为0，相当于停盘！！！
-        df.to_csv('share20210306.csv')
+        df.to_csv(filename)
 
-
-def test_pro_us_index():
-    SC = Stock_Collection('stock')
-    us_index_code='IXIC,DJI,HSI,SPX,N225,GDAXI'
-    share = StockHisData(True)
-    share.set_us_code(us_index_code)
-
-    df = share.get_us_index('20210301', '20210306')
-    SC.insertdatas('fq_stocks', df)
-
-    print(df)
  
-def add_dat():
-    SC = Stock_Collection('stock')
-    df = pd.read_csv('000001.csv')
-    df['ts_code'] = '000001.SH'
-    print(df)   
-    SC.insertdatas('fq_stocks', df) 
-    df = pd.read_csv('399001.csv')
-    df['ts_code'] = '399001.SZ'
-    print(df) 
-    SC.insertdatas('fq_stocks', df)   
- 
-        
+       
 
 def test_pro():
     share = StockHisData(True)
@@ -318,20 +296,7 @@ def test_pro_index():
     SC.insertdatas('fq_stocks', df) 
 
     print(df)        
-
-def test_old_index():
-    SC = Stock_Collection('stock')    
-    share = StockHisData(False)
-    # 上证指数
-    share.set_code('sh')
-    df = share.get_his_dat('2021-03-01', '2021-03-06')
-    SC.insertdatas('fq_stocks', df) 
-    
-    #深成指数
-    share.set_code('399001')
-    df = share.get_his_dat('2021-03-01', '2021-03-06')
-    SC.insertdatas('fq_stocks', df) 
-    
+  
 
 
 def test_old():
@@ -347,20 +312,6 @@ def test_old():
 
         print(df)      
 
-def test_fq():
-    SC = Stock_Collection('stock')
-    share = StockHisData(False)       
-
-    #df = pd.DataFrame()
-    share_code = ['002230.SZ','000547.SZ','601208.SH','600030.SH','601318.SH']
-    #share_code = ['399001.SZ','000001.SH']
-    for i in range(len(share_code)):
-        share.set_code(share_code[i])
-        df = share.get_h_dat('2021-03-01', "2021-03-06" ,fq='hfq') 
-        #df = share.get_h_dat('2021-03-01', "2021-03-06" ,fq='None') 
-        SC.insertdatas('fq_stocks', df) 
-
-        print(df)    
 
 def test_old_tickshare():
     #SC = Stock_Collection('stock')
@@ -369,28 +320,59 @@ def test_old_tickshare():
     share.set_code(share_code)
     df = share.get_tickshare_dat('15', '2018-01-01', "2021-02-19")
      
-    print(df)     
-
-if __name__ == '__main__':
-    #test_old()
-    #test_old_index()
-    #test_old_tickshare()
-    #test_pro_index()
-    #test_pro_index()
-    #美国道琼斯、纳斯达克等指数
-    #test_pro_us_index()
-    #test_fq()
+    print(df)
     
+def append_dat(start_date, end_date):
+    SC = Stock_Collection('stock')
+    share = StockHisData(False)           
+
+    share_code = ['002230.SZ','000547.SZ','601208.SH','600030.SH','601318.SH']
+    #share_code = ['399001.SZ','000001.SH']
+    for i in range(len(share_code)):
+        share.set_code(share_code[i])
+        df = share.get_h_dat(start_date, end_date ,fq='hfq') 
+        #df = share.get_h_dat('2021-03-01', "2021-03-06" ,fq='None') 
+        SC.insertdatas('fq_stocks', df) 
+
+        print(df) 
+    # 上证指数
+    share.set_code('sh')
+    df = share.get_his_dat(start_date, end_date)
+    SC.insertdatas('fq_stocks', df) 
+    
+    #深成指数
+    share.set_code('399001')
+    df = share.get_his_dat(start_date, end_date)
+    SC.insertdatas('fq_stocks', df) 
+    
+    us_index_code='IXIC,DJI,HSI,SPX,N225,GDAXI'
+    share = StockHisData(True)
+    share.set_us_code(us_index_code)
+    #1分钟只能访问一次
+    df = share.get_us_index(re.sub('\D','',start_date), re.sub('\D','',end_date))
+    SC.insertdatas('fq_stocks', df)
+
+    print(df)    
+    
+def prepare(ts_code,filename):
     SC = Stock_Collection('stock')
     #print(SC.getDistinctCode('stocks'))
     SC.setIndex_Code()
-    SC.setCode()
+    #可以是多个
+    SC.setCode([ts_code])
     #复权
-    SC.generate_train_datas('fq_stocks', '002230.SZ')
+    SC.generate_train_datas('fq_stocks', ts_code,filename)    
+
+
+if __name__ == '__main__':
+    #append_dat('2021-03-22', '2021-03-26')
+
     
-    #share = StockHisData(True)
-    #share.set_code('002230.SZ')
-    #share.get_ShareInfo('20210219')
+    prepare('002230.SZ','share002230_0328.csv')
+    
+
+
+
     
     
 
